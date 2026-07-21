@@ -1,0 +1,17 @@
+# ignore Gradle files
+.gradle/
+build/
+
+# local configuration file (sdk path, etc)
+keystore.properties
+local.properties
+signing.gradle
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea
+
+# Mac
+.DS_Store
