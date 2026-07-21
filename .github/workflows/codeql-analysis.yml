@@ -1,0 +1,64 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "main" ]
+  schedule:
+    - cron: '27 8 * * 6'
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: "Languages to analyze"
+        required: true
+        default: "java-kotlin"
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # AGP 8.13.2 with the Gradle 9.0 wrapper requires JDK 17.
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        # For scheduled/push/PR runs there is no dispatch input, so fall back to java-kotlin.
+        languages: ${{ github.event.inputs.languages || 'java-kotlin' }}
+        # Android is a compiled language; build it manually below so CodeQL traces the real build.
+        build-mode: manual
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+        # queries: security-extended,security-and-quality
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
+    # Product flavors are 'full' and 'lite'; assembleFullDebug compiles the whole
+    # main source set, which is what CodeQL needs to trace for analysis.
+    - name: Build with Gradle
+      run: ./gradlew assembleFullDebug --console=plain
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{ github.event.inputs.languages || 'java-kotlin' }}"
