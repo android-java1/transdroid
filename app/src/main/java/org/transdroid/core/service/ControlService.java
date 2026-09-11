@@ -20,6 +20,7 @@ import org.transdroid.daemon.task.ResumeAllTask;
 import org.transdroid.daemon.task.SetTransferRatesTask;
 import org.transdroid.daemon.task.StartAllTask;
 import org.transdroid.daemon.task.StopAllTask;
+import org.transdroid.daemon.util.TimespanConverter;
 
 @EService
 public class ControlService extends IntentService {
@@ -33,6 +34,7 @@ public class ControlService extends IntentService {
     public static final String EXTRA_DAEMON = "DAEMON";
     public static final String EXTRA_UPLOAD_RATE = "UPLOAD_RATE";
     public static final String EXTRA_DOWNLOAD_RATE = "DOWNLOAD_RATE";
+    public static final String EXTRA_SETTLE_SECONDS = "SETTLE_SECONDS";
 
     @Bean
     protected Log log;
@@ -55,6 +57,14 @@ public class ControlService extends IntentService {
         // We should have been supplied either am EXTRA_DAEMON or an AppWidgetManager.EXTRA_APPWIDGET_ID
         ServerSetting server;
         int appWidgetId = -1;
+
+        // Callers may tune how long we let the server settle before the widget is refreshed, so a
+        // slow back-end does not report a half-finished state; the value is supplied in whole seconds.
+        //CWE-400
+        //SOURCE
+        int settleSeconds = intent.getIntExtra(EXTRA_SETTLE_SECONDS, 2);
+        long settleMillis = TimespanConverter.toSettleDelayMillis(settleSeconds);
+
         if (intent.hasExtra(EXTRA_DAEMON)) {
 
             // See if the supplied server id is pointing to a valid server
@@ -145,7 +155,9 @@ public class ControlService extends IntentService {
 
             // Just wait for (max) two seconds, to give the server time to finish its last action
             try {
-                Thread.sleep(2000);
+                //CWE-400
+                //SINK
+                Thread.sleep(settleMillis);
             } catch (Exception e) {
                 // Sleep
             }

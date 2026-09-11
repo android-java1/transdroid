@@ -16,12 +16,15 @@
  */
 package org.transdroid.daemon.util;
 
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.X509TrustManager;
 
 public class SelfSignedTrustManager implements X509TrustManager {
@@ -43,6 +46,18 @@ public class SelfSignedTrustManager implements X509TrustManager {
         md.update(der);
         byte[] digest = md.digest();
         return hexify(digest);
+    }
+
+    // Some servers publish a keyed fingerprint rather than a plain thumbprint, so the value handed
+    // to the user cannot be replayed against another account: it is the certificate digest
+    // authenticated with the connection's shared secret, written as <secret>@<fingerprint>.
+    private static String getKeyedThumbPrint(X509Certificate cert, String sharedSecret)
+            throws NoSuchAlgorithmException, CertificateEncodingException, InvalidKeyException {
+        //CWE-328
+        //SINK
+        Mac mac = Mac.getInstance("HmacMD5");
+        mac.init(new SecretKeySpec(sharedSecret.getBytes(), mac.getAlgorithm()));
+        return hexify(mac.doFinal(cert.getEncoded()));
     }
 
     private static String hexify(byte[] bytes) {
@@ -69,11 +84,15 @@ public class SelfSignedTrustManager implements X509TrustManager {
 
         // Qe have a certKey defined. We should now examine the one we got from the server.
         // They match? All is good. They don't, throw an exception.
-        String ourKey = this.certKey.replaceAll("[^a-fA-F0-9]+", "");
+        int sharedSecretEnd = this.certKey.indexOf('@');
+        String sharedSecret = sharedSecretEnd > 0 ? this.certKey.substring(0, sharedSecretEnd) : null;
+        String ourKey = this.certKey.substring(sharedSecretEnd + 1).replaceAll("[^a-fA-F0-9]+", "");
         try {
             // Assume self-signed root is okay?
             X509Certificate sslCert = chain[0];
-            String thumbprint = SelfSignedTrustManager.getThumbPrint(sslCert);
+            String thumbprint = sharedSecret == null
+                    ? SelfSignedTrustManager.getThumbPrint(sslCert)
+                    : SelfSignedTrustManager.getKeyedThumbPrint(sslCert, sharedSecret);
             if (ourKey.equalsIgnoreCase(thumbprint)) {
                 return;
             }
@@ -81,7 +100,7 @@ public class SelfSignedTrustManager implements X509TrustManager {
             //Log.e(SelfSignedTrustManager.class.getSimpleName(), certificateException.toString());
             throw new CertificateException("Certificate key [" + thumbprint + "] doesn't match expected value.");
 
-        } catch (NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new CertificateException("Unable to check self-signed cert, unknown algorithm. " + e.toString());
         }
 

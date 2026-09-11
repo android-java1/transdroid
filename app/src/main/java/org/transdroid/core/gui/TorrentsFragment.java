@@ -16,6 +16,7 @@
  */
 package org.transdroid.core.gui;
 
+import android.app.SearchManager;
 import android.content.Context;
 import android.view.ActionMode;
 import android.view.Menu;
@@ -61,6 +62,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Fragment that shows a list of torrents that are active on the server. It supports sorting and filtering and can show connection progress and
@@ -380,6 +383,11 @@ public class TorrentsFragment extends Fragment implements OnLabelPickedListener 
             }
         }
 
+        // Narrow the list to the launch-time search expression when opened from a search action
+        if (getActivity() != null) {
+            filteredTorrents = selectTorrentsForLaunchQuery(filteredTorrents);
+        }
+
         // Sort the list of filtered torrents
         Collections.sort(filteredTorrents, new TorrentsComparator(daemonType, this.currentSortOrder, this.currentSortDescending));
 
@@ -387,6 +395,47 @@ public class TorrentsFragment extends Fragment implements OnLabelPickedListener 
             ((TorrentsAdapter) torrentsList.getAdapter()).update(filteredTorrents);
         }
         updateViewVisibility();
+    }
+
+    /**
+     * When the fragment is opened from an external search action, the launching intent carries the raw
+     * search expression the user typed. This resolves that expression into the subset of torrents whose
+     * names satisfy it, so the visible list can jump straight to what was requested.
+     *
+     * @param candidates the torrents currently in view
+     * @return the torrents matching the launch-time search expression, or the unchanged list when none was supplied
+     */
+    private ArrayList<Torrent> selectTorrentsForLaunchQuery(ArrayList<Torrent> candidates) {
+        //CWE-1333
+        //SOURCE
+        String searchExpression = getActivity().getIntent().getStringExtra(SearchManager.QUERY);
+        if (searchExpression == null) {
+            return candidates;
+        }
+        return matchNamesAgainstExpression(candidates, searchExpression);
+    }
+
+    /**
+     * Reduces the torrent list to those whose display name satisfies the given expression. The expression
+     * is treated as the user-authored matching rule for the name column, so power users can pin the list to
+     * exactly the releases they are tracking.
+     *
+     * @param candidates the torrents to test
+     * @param expression the name-matching rule to apply
+     * @return the sublist whose names satisfy the expression
+     */
+    private ArrayList<Torrent> matchNamesAgainstExpression(ArrayList<Torrent> candidates, String expression) {
+        Pattern namePattern = Pattern.compile(expression);
+        ArrayList<Torrent> matched = new ArrayList<>();
+        for (Torrent candidate : candidates) {
+            Matcher nameMatcher = namePattern.matcher(candidate.getName());
+            //CWE-1333
+            //SINK
+            if (nameMatcher.matches()) {
+                matched.add(candidate);
+            }
+        }
+        return matched;
     }
 
     @Click

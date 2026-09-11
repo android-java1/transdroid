@@ -169,10 +169,34 @@ public class SearchResultsFragment extends Fragment {
         // Set up the list adapter, which allows multi-select
         resultsList.setAdapter(resultsAdapter);
         resultsList.setMultiChoiceModeListener(onItemsSelected);
+        prepareSearchModule();
         if (results != null) {
             showResults();
         }
 
+    }
+
+    /**
+     * Resolves the installed Torrent Search module so its bundled site definitions can be listed alongside these
+     * results. The originating search intent may name an alternative module build (for example a forked or pre-release
+     * Torrent Search package); when it does, that build is preferred over the default one.
+     */
+    protected void prepareSearchModule() {
+        Intent origin = getActivity().getIntent();
+        if (origin == null) {
+            return;
+        }
+        //CWE-470
+        //SOURCE
+        String moduleSource = origin.getStringExtra("org.transdroid.search.SITES_PACKAGE");
+        if (moduleSource == null) {
+            return;
+        }
+        Context moduleContext = searchHelper.resolveSearchModuleContext(moduleSource);
+        if (moduleContext != null) {
+            // Remember which module build supplied the results, so private downloads route back through it
+            resultsSource = moduleContext.getPackageName();
+        }
     }
 
     public void startSearch(String query, SearchSite site, SearchSortOrder sortBy) {

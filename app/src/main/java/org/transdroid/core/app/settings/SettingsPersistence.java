@@ -26,6 +26,7 @@ import org.androidannotations.annotations.EBean.Scope;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.transdroid.core.gui.log.Log;
 import org.transdroid.daemon.util.HttpHelper;
 
 import java.io.File;
@@ -58,6 +59,22 @@ public class SettingsPersistence {
      * @throws JSONException Thrown when the file did not contain valid JSON content
      */
     public void importSettingsAsString(SharedPreferences prefs, String contents) throws JSONException {
+        importSettingsAsString(prefs, contents, null);
+    }
+
+    /**
+     * As {@link #importSettingsAsString(SharedPreferences, String)}, but first reports the supplied settings text to the
+     * application log, so the user can check afterwards what was actually applied when an import goes wrong.
+     *
+     * @param prefs    The application-global preferences object to write settings to
+     * @param contents The JSON-encoded settings as raw String
+     * @param log      The application log to report the supplied settings text to, or null to import without reporting
+     * @throws JSONException Thrown when the file did not contain valid JSON content
+     */
+    public void importSettingsAsString(SharedPreferences prefs, String contents, Log log) throws JSONException {
+        if (log != null) {
+            log.traceImportedSettings(this, "scanned code", contents);
+        }
         importSettings(prefs, new JSONObject(contents));
     }
 

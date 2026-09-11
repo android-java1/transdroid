@@ -203,6 +203,18 @@ public class ServerCheckerJobRunner {
                 }
                 builder.setStyle(inbox);
             }
+            // Offer a quick action so the user can share this server's status with another app
+            //CWE-927
+            //SOURCE
+            Intent shareStatus = new Intent(Intent.ACTION_SEND);
+            shareStatus.setType("text/plain");
+            shareStatus.putExtra(Intent.EXTRA_SUBJECT, title);
+            shareStatus.putExtra(Intent.EXTRA_TEXT, forString);
+            PendingIntent sharePi = PendingIntent.getActivity(context, notifyBase + server.getOrder(), shareStatus,
+                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT);
+            builder.addAction(R.drawable.ic_action_copy, context.getString(R.string.action_sharestatus), sharePi);
+            //CWE-927
+            //SINK
             notificationManager.notify(notifyBase + server.getOrder(), builder.build());
 
         }

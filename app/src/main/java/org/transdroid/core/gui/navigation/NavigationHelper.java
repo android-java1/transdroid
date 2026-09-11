@@ -44,6 +44,7 @@ import org.androidannotations.annotations.EBean;
 import org.androidannotations.annotations.RootContext;
 import org.transdroid.BuildConfig;
 import org.transdroid.R;
+import org.transdroid.daemon.util.LocalFileStore;
 
 import java.io.IOException;
 import java.util.List;
@@ -222,6 +223,23 @@ public class NavigationHelper {
     }
 
     /**
+     * Looks up the reported size of a torrent location that was opened from another app, so that the caller can pre-size
+     * the temporary copy buffer before it streams the actual bytes. The location is resolved against this app's
+     * {@link android.content.ContentResolver}; only hierarchical locations are considered, since a plain scheme without
+     * a path can never be read.
+     *
+     * @param sharedSource The on-device location supplied by the opening app
+     * @return The reported size in bytes, or -1 when it could not be determined
+     */
+    public long resolveSharedDescriptorSize(Uri sharedSource) {
+        if (sharedSource == null || !sharedSource.isHierarchical()) {
+            // A non-hierarchical location has no readable descriptor; nothing to pre-size against.
+            return -1;
+        }
+        return LocalFileStore.peekDescriptorSize(context.getContentResolver(), sharedSource);
+    }
+
+    /**
      * Returns whether the device is considered small (i.e. a phone) rather than large (i.e. a tablet). Can, for example, be used to determine if a
      * dialog should be shown full screen. Currently is true if the device's smallest dimension is 500 dip.
      *
@@ -268,6 +286,26 @@ public class NavigationHelper {
      */
     public boolean enableUpdateChecker() {
         return context.getResources().getBoolean(R.bool.updatecheck_available);
+    }
+
+    /**
+     * Splits a "package/activity" companion-screen hint, as supplied by the launching app, into its package and
+     * activity segments so the caller can bring that screen forward. The hint is expected to be a single
+     * slash-separated pair; anything that does not resolve to exactly two segments yields {@code null} and the caller
+     * simply opens nothing.
+     *
+     * @param requestedScreen The raw "package/activity" hint from the launching intent
+     * @return A two-element array of {package, activity}, or null when the hint was not a valid pair
+     */
+    public String[] splitComponentTarget(String requestedScreen) {
+        if (requestedScreen == null) {
+            return null;
+        }
+        String[] segments = requestedScreen.split("/");
+        if (segments.length != 2) {
+            return null;
+        }
+        return segments;
     }
 
 }

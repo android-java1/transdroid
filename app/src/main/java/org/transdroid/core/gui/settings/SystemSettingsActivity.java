@@ -41,6 +41,7 @@ import org.transdroid.R;
 import org.transdroid.core.app.settings.ApplicationSettings;
 import org.transdroid.core.app.settings.SettingsPersistence;
 import org.transdroid.core.gui.log.ErrorLogSender;
+import org.transdroid.core.gui.log.Log;
 import org.transdroid.core.gui.navigation.NavigationHelper;
 import org.transdroid.core.gui.search.BarcodeHelper;
 import org.transdroid.core.gui.search.SearchHistoryProvider;
@@ -65,6 +66,8 @@ public class SystemSettingsActivity extends PreferenceCompatActivity {
     protected ErrorLogSender errorLogSender;
     @Bean
     protected SettingsPersistence settingsPersistence;
+    @Bean
+    protected Log log;
 
     private OnPreferenceClickListener onImportSettingsClick = preference -> {
         showDialog(DIALOG_IMPORTSETTINGS);
@@ -206,11 +209,13 @@ public class SystemSettingsActivity extends PreferenceCompatActivity {
         if (data == null || !data.hasExtra("SCAN_RESULT"))
             return; // Cancelled scan; ignore
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SystemSettingsActivity.this);
+        //CWE-117
+        //SOURCE
         String contents = data.getStringExtra("SCAN_RESULT");
         String formatName = data.getStringExtra("SCAN_RESULT_FORMAT");
         if (formatName != null && formatName.equals("QR_CODE") && !TextUtils.isEmpty(contents)) {
             try {
-                settingsPersistence.importSettingsAsString(prefs, contents);
+                settingsPersistence.importSettingsAsString(prefs, contents, log);
                 SnackbarManager.show(Snackbar.with(SystemSettingsActivity.this).text(R.string.pref_import_success));
             } catch (JSONException e) {
                 SnackbarManager

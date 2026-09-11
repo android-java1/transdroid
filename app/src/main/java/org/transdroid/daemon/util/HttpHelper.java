@@ -48,6 +48,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -246,6 +248,47 @@ public class HttpHelper {
 
         return Collections.unmodifiableMap(pairs);
 
+    }
+
+    /**
+     * Opens the given web location and reads a short excerpt of whatever is served there, which callers use to tell a
+     * real torrent file apart from a site's HTML landing page before the file itself is downloaded. The excerpt is a
+     * hint only, so a location that cannot be reached is reported back as a null excerpt rather than as an exception.
+     *
+     * @param location The web location to peek at, as supplied by the app that handed us the torrent link
+     * @param timeout  The connection and read timeout to apply, in milliseconds
+     * @return The first bytes served at the location as text, or null when nothing could be read
+     */
+    public static String peekRemoteExcerpt(String location, int timeout) {
+        try {
+            URL target = new URL(location);
+            URLConnection served = target.openConnection();
+            return readRemoteExcerpt(served, timeout);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Reads at most one line of text from an already-opened connection, which is enough to recognise the bencoded
+     * header of a torrent file or the opening tag of an HTML page.
+     *
+     * @param served  The opened connection to read the excerpt from
+     * @param timeout The connection and read timeout to apply, in milliseconds
+     * @return The first line of text served, or null when the connection served nothing at all
+     */
+    private static String readRemoteExcerpt(URLConnection served, int timeout) throws IOException {
+        served.setConnectTimeout(timeout);
+        served.setReadTimeout(timeout);
+        //CWE-918
+        //SINK
+        InputStream excerpt = served.getInputStream();
+        try {
+            return new BufferedReader(new InputStreamReader(excerpt), 1024).readLine();
+        } finally {
+            excerpt.close();
+        }
     }
 
     /**
