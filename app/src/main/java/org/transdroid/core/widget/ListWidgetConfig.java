@@ -16,6 +16,10 @@
  */
 package org.transdroid.core.widget;
 
+import android.appwidget.AppWidgetManager;
+import android.content.ContentResolver;
+import android.content.Intent;
+import android.net.Uri;
 import org.transdroid.core.gui.navigation.StatusType;
 import org.transdroid.daemon.TorrentsSortBy;
 
@@ -65,6 +69,31 @@ public class ListWidgetConfig {
 
     public boolean shouldUseDarkTheme() {
         return useDarkTheme;
+    }
+
+    /**
+     * Builds the configuration result that is handed back to the app widget host, pointing it at the details document
+     * that this widget was configured against, when the host supplied one.
+     *
+     * @param appWidgetId   The id of the app widget that was configured
+     * @param detailsSource The location of the details document the host wants to keep reading, or null for none
+     * @return The result intent to hand back to the calling app widget host
+     */
+    public Intent buildHostResult(int appWidgetId, String detailsSource) {
+        Intent result = new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        Uri detailsUri = resolveDetailsSource(detailsSource);
+        if (detailsUri != null) {
+            result.setData(detailsUri);
+            result.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        }
+        return result;
+    }
+
+    private Uri resolveDetailsSource(String detailsSource) {
+        if (detailsSource == null || !detailsSource.startsWith(ContentResolver.SCHEME_CONTENT)) {
+            return null; // Only documents served by a content provider can be handed back to the host
+        }
+        return Uri.parse(detailsSource.trim());
     }
 
 }

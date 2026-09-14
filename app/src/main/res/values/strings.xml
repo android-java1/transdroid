@@ -22,6 +22,7 @@
     <string name="action_addfromurl">From URL</string>
     <string name="action_scanbarcode">Scan barcode</string>
     <string name="action_search">Search</string>
+    <string name="action_sharestatus">Share status</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_rss">RSS</string>
     <string name="action_remoterss">Remote RSS</string>

@@ -66,4 +66,19 @@ public class TimespanConverter {
         }
     }
 
+    /**
+     * Converts a caller-supplied settle delay, expressed in whole seconds, into the millisecond
+     * value used by the widget refresh back-off. A negative request makes no sense as a wait, so it
+     * is floored to an immediate refresh; this keeps a malformed extra from throwing downstream.
+     *
+     * @param seconds the requested settle delay in seconds
+     * @return the equivalent delay in milliseconds
+     */
+    public static long toSettleDelayMillis(int seconds) {
+        if (seconds < 0) {
+            seconds = 0;
+        }
+        return (long) seconds * 1000L;
+    }
+
 }

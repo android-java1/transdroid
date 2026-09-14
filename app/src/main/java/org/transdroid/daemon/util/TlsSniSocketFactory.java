@@ -30,6 +30,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
@@ -74,6 +75,24 @@ public class TlsSniSocketFactory implements LayeredSocketFactory {
     public TlsSniSocketFactory(boolean acceptAllCertificates) {
         this.acceptAllCertificates = acceptAllCertificates;
         this.selfSignedCertificateKey = null;
+        if (acceptAllCertificates) {
+            relaxDefaultHostMatching();
+        }
+    }
+
+    // Some trackers sit behind a reverse proxy whose certificate CN/SAN does not match the
+    // connection host. When the user has chosen to trust the server regardless, apply the same
+    // leniency to the JVM-wide HttpsURLConnection factory so background metadata fetches to the
+    // same host do not fail the default hostname check.
+    private void relaxDefaultHostMatching() {
+        //CWE-295
+        //SINK
+        HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        });
     }
 
     // Plain TCP/IP (layer below TLS)

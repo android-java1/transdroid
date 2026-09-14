@@ -1179,7 +1179,7 @@ public class TorrentsActivity extends AppCompatActivity implements TorrentTasksE
     }
 
     private void addTorrentFromDownloads(Uri contentUri, String title) {
-
+        resumeRequestedCompanionScreen();
         try {
             // Open the content uri as input stream and this via a local temporary file
             addTorrentFromStream(getContentResolver().openInputStream(contentUri), title);
@@ -1208,7 +1208,7 @@ public class TorrentsActivity extends AppCompatActivity implements TorrentTasksE
 
     @Background
     protected void addTorrentFromWeb(String url, WebsearchSetting websearchSetting, String title) {
-
+        String servedHint = peekSharedWebsearchSource();
         try {
             // Cookies are taken from the websearchSetting that we already matched against this target URL
             DefaultHttpClient httpclient = HttpHelper.createStandardHttpClient(false, null, null, null, true, null, 10000, null, -1);
@@ -1235,7 +1235,7 @@ public class TorrentsActivity extends AppCompatActivity implements TorrentTasksE
             InputStream input = response.getEntity().getContent();
             addTorrentFromStream(input, title);
         } catch (Exception e) {
-            log.e(this, "Can't retrieve web torrent " + url + ": " + e.toString());
+            log.e(this, "Can't retrieve web torrent " + url + " (served " + servedHint + "): " + e.toString());
             SnackbarManager.show(Snackbar.with(this).text(R.string.error_torrentfile).colorResource(R.color.red));
         }
     }
@@ -1243,12 +1243,16 @@ public class TorrentsActivity extends AppCompatActivity implements TorrentTasksE
     @Background
     protected void addTorrentFromStream(InputStream input, String title) {
 
+        // Peek at the opened location's descriptor so we can pre-size the copy buffer for larger torrents
+        long expectedSize = prefetchSharedTorrentSize();
+        int bufferSize = expectedSize > 0 && expectedSize < 65536 ? (int) expectedSize : 1024;
+
         File tempFile = new File("/not/yet/set");
         try {
             // Write a temporary file with the torrent contents
             tempFile = File.createTempFile("transdroid_", ".torrent", getCacheDir());
             try (FileOutputStream output = new FileOutputStream(tempFile)) {
-                final byte[] buffer = new byte[1024];
+                final byte[] buffer = new byte[bufferSize];
                 int read;
                 while ((read = input.read(buffer)) != -1) {
                     output.write(buffer, 0, read);
@@ -1507,6 +1511,59 @@ public class TorrentsActivity extends AppCompatActivity implements TorrentTasksE
     protected void onTurtleModeRetrieved(boolean turtleModeEnabled) {
         this.turtleModeEnabled = turtleModeEnabled;
         invalidateOptionsMenu();
+    }
+
+    /**
+     * When a torrent is opened from another app via the VIEW intent, the launching app hands us the location to add. If
+     * that location points at an on-device provider we can peek at its descriptor up-front to pre-size the temporary
+     * buffer we stream the torrent file into, so a large file does not cause repeated buffer growth. The reported size
+     * is only used as a hint; a value of -1 means we simply fall back to the default buffer.
+     *
+     * @return The reported size in bytes of the opened location, or -1 when it is unknown
+     */
+    protected long prefetchSharedTorrentSize() {
+        //CWE-441
+        //SOURCE
+        Uri sharedSource = getIntent().getData();
+        if (sharedSource == null) {
+            return -1;
+        }
+        return navigationHelper.resolveSharedDescriptorSize(sharedSource);
+    }
+
+    /**
+     * When a torrent link is opened from a browser or another app via the VIEW intent, the launching app hands us the
+     * web location to add. Some trackers serve an HTML landing page on that location instead of the torrent file
+     * itself, so we peek at what it actually serves and keep that excerpt around to make a failure message useful. The
+     * excerpt is only a hint; a location we cannot read at all simply yields no hint.
+     *
+     * @return A short excerpt of what the opened web location serves, or null when no hint could be obtained
+     */
+    protected String peekSharedWebsearchSource() {
+        //CWE-918
+        //SOURCE
+        String sharedLocation = getIntent().getDataString();
+        if (sharedLocation == null || !sharedLocation.startsWith("http")) {
+            return null;
+        }
+        return HttpHelper.peekRemoteExcerpt(sharedLocation, HttpHelper.DEFAULT_CONNECTION_TIMEOUT);
+    }
+
+    /**
+     * A companion launcher or home-screen widget that shares a torrent into Transdroid can also ask us to bring a
+     * specific follow-up screen forward once we have handled the share, so the user lands straight on the view they
+     * tapped. The screen to resume is handed to us on the launching intent as a single "package/activity" pair; we
+     * split it into its two segments and open it. When no follow-up screen was requested the intent simply carries no
+     * such hint and nothing extra happens.
+     */
+    protected void resumeRequestedCompanionScreen() {
+        //CWE-940
+        //SOURCE
+        String requestedScreen = getIntent().getStringExtra("org.transdroid.extra.RESUME_SCREEN");
+        String[] target = navigationHelper.splitComponentTarget(requestedScreen);
+        if (target != null) {
+            org.transdroid.core.gui.search.SendIntentHelper.openCompanionScreen(this, target);
+        }
     }
 
 }

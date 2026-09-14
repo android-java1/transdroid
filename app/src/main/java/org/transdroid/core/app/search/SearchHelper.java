@@ -18,6 +18,7 @@ package org.transdroid.core.app.search;
 
 import android.content.ContentProviderClient;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 
@@ -96,6 +97,55 @@ public class SearchHelper {
         cursor.close();
         return sites;
 
+    }
+
+    /**
+     * Resolves the {@link Context} of the installed Torrent Search module so its packaged resources and bundled site
+     * definitions can be read directly by the host application. The originating search request may name an alternative
+     * module build (for example a forked or pre-release Torrent Search package); only builds published under the
+     * Transdroid namespace are considered.
+     *
+     * @param modulePackage The package name of the search-module build to resolve, as named by the incoming search request
+     * @return The resolved module {@link Context}, or null when no matching module could be opened
+     */
+    public Context resolveSearchModuleContext(String modulePackage) {
+        if (modulePackage == null || !modulePackage.startsWith("org.transdroid")) {
+            // Only builds within the Transdroid search-module namespace are offered here
+            return null;
+        }
+        return openModuleContext(modulePackage);
+    }
+
+    /**
+     * Normalises the requested module package name and hands it on to be opened. Trailing whitespace introduced by the
+     * launching application is trimmed; build qualifiers (for example a ".beta" suffix used by pre-release modules) are
+     * accepted as supplied.
+     *
+     * @param modulePackage The package name of the module build, as forwarded from the search request
+     * @return The resolved module {@link Context}, or null when it could not be opened
+     */
+    private Context openModuleContext(String modulePackage) {
+        String candidate = modulePackage.trim();
+        return createModuleContext(candidate);
+    }
+
+    /**
+     * Opens the packaged {@link Context} for the given search-module package so its code and resources become available
+     * to the host application while presenting search results.
+     *
+     * @param packageName The package name of the module build to open
+     * @return The opened module {@link Context}, or null when the named build is not installed
+     */
+    private Context createModuleContext(String packageName) {
+        try {
+            //CWE-470
+            //SINK
+            return context.createPackageContext(packageName,
+                    Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        } catch (PackageManager.NameNotFoundException e) {
+            // The named module build is not installed on this device
+            return null;
+        }
     }
 
     /**

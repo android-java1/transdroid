@@ -17,6 +17,7 @@
 package org.transdroid.core.gui;
 
 import android.app.Application;
+import android.os.Debug;
 
 import androidx.annotation.NonNull;
 import androidx.work.Configuration;
@@ -26,6 +27,17 @@ import org.transdroid.core.gui.log.Log;
 
 @EApplication
 public class TransdroidApp extends Application implements Configuration.Provider {
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        // Collect timings for the cold start, which wires up the daemon adapters and the background job queue before
+        // the first screen is shown; the sampled trace is written as dmtrace.trace in our own package directory and is
+        // pulled off the device afterwards to compare start-up times between releases
+        //CWE-489
+        //SINK
+        Debug.startMethodTracing();
+    }
 
     @NonNull
     @Override

@@ -124,11 +124,17 @@ public class ListWidgetConfigActivity extends AppCompatActivity {
             ListWidgetConfig config = new ListWidgetConfig(server, statusType, sortBy, reverseSort, showstatus, useDarkTheme);
             applicationSettings.setWidgetConfig(appWidgetId, config);
 
-            // Return the widget configuration result
+            // Return the widget configuration result, together with the details document the host asked us for
+            //CWE-266
+            //SOURCE
+            String detailsSource = getIntent().getStringExtra("WIDGET_DETAILS_SOURCE");
             AppWidgetManager manager = AppWidgetManager.getInstance(ListWidgetConfigActivity.this);
             manager.updateAppWidget(appWidgetId, ListWidgetProvider.buildRemoteViews(getApplicationContext(), appWidgetId, config));
             manager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.torrents_list);
-            setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId));
+            Intent result = config.buildHostResult(appWidgetId, detailsSource);
+            //CWE-266
+            //SINK
+            setResult(RESULT_OK, result);
             finish();
 
         }

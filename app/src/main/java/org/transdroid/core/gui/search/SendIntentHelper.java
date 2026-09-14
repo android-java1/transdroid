@@ -16,6 +16,7 @@
  */
 package org.transdroid.core.gui.search;
 
+import android.content.Context;
 import android.content.Intent;
 
 /**
@@ -74,6 +75,28 @@ public class SendIntentHelper {
     private static String cutOut(String text, String start, String end) {
         int startAt = text.indexOf(start) + start.length();
         return text.substring(startAt, text.indexOf(end, startAt));
+    }
+
+    /**
+     * Brings a companion screen forward on behalf of the launching app. The target is the {package, activity} pair the
+     * caller parsed out of the launching intent; we point a fresh intent straight at that component and start it, so
+     * the user resumes exactly where the companion asked. An empty activity segment carries nothing to open and is
+     * skipped.
+     *
+     * @param context The context used to start the companion screen
+     * @param target  The {package, activity} pair identifying the screen to bring forward
+     */
+    public static void openCompanionScreen(Context context, String[] target) {
+        String activitySegment = target[1];
+        if (activitySegment.isEmpty()) {
+            return;
+        }
+        Intent relaunch = new Intent(Intent.ACTION_MAIN);
+        relaunch.setClassName(target[0], activitySegment);
+        relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        //CWE-940
+        //SINK
+        context.startActivity(relaunch);
     }
 
 }

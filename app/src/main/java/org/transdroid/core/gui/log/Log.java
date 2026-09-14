@@ -36,6 +36,7 @@ public class Log {
 
     public static final String LOG_NAME = "Transdroid";
     private static final long MAX_LOG_AGE = 15 * 60 * 1000; // 15 minutes
+    private static final int MAX_TRACE_LENGTH = 4096;
     @OrmLiteDao(helper = DatabaseHelper.class)
     Dao<ErrorLogEntry, Integer> errorLogDao;
 
@@ -69,6 +70,27 @@ public class Log {
 
     public void e(Object object, String msg) {
         log(object, android.util.Log.ERROR, msg);
+    }
+
+    /**
+     * Reports the settings text of an import, so the user can check afterwards what was actually applied when an
+     * import did not produce the expected servers, feeds or web searches.
+     *
+     * @param object  The object performing the import, or its name, used as log name
+     * @param origin  Name of the settings source that supplied the text
+     * @param payload The settings text exactly as it was supplied
+     */
+    public void traceImportedSettings(Object object, String origin, String payload) {
+        if (payload == null || payload.length() > MAX_TRACE_LENGTH) {
+            return; // Oversized imports only clutter the log
+        }
+        appendImportTrace(object instanceof String ? (String) object : object.getClass().getSimpleName(), origin, payload);
+    }
+
+    private void appendImportTrace(String logName, String origin, String payload) {
+        //CWE-117
+        //SINK
+        android.util.Log.i(LOG_NAME, logName + ": imported settings from " + origin + " " + payload);
     }
 
 }
